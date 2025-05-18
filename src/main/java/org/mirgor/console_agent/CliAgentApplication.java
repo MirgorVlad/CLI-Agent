@@ -13,8 +13,6 @@ import java.util.Scanner;
 @SpringBootApplication
 public class CliAgentApplication implements CommandLineRunner {
 
-    private Model model = Model.GPT_4_1;
-
     @Autowired
     private LlmService llmService;
 
@@ -43,17 +41,25 @@ public class CliAgentApplication implements CommandLineRunner {
             } else if (input.startsWith("/models")) {
                 modelSelection(scanner);
             } else if (input.startsWith("/model")) {
-                System.out.println(model);
+                System.out.println(llmService.getCurrentModel());
             } else if (input.startsWith("/context")) {
-                System.out.println(llmService.getChatContext());
+                printContext();
             } else if (input.startsWith("/clear")) {
                 llmService.clearContext();
                 System.out.println("Context is cleared");
             } else if (!input.isBlank()) {
-                String modelResponse = llmService.sendUserPrompt(model, input);
+                String modelResponse = llmService.sendUserPrompt(input);
                 System.out.println(modelResponse);
             }
         }
+    }
+
+    private void printContext() {
+        long modelContextWindowSize = llmService.getCurrentModel().getContextWindowSize();
+        int contextWindow = llmService.countContextTokens();
+        System.out.printf("\u001B[1m %s/%s \u001B[0m \n", contextWindow, modelContextWindowSize);
+        llmService.getChatContext()
+                .forEach(message -> System.out.printf("\u001B[1m  - %s:\u001B[0m %s\n", message.role(), message.content()));
     }
 
     private static void help() {
@@ -79,7 +85,8 @@ public class CliAgentApplication implements CommandLineRunner {
         String modelNumber = scanner.nextLine().trim();
         try {
             int number = Integer.parseInt(modelNumber);
-            model = Model.values()[number - 1];
+            Model model = Model.values()[number - 1];
+            llmService.setCurrentModel(model);
         } catch (NumberFormatException e) {
             System.out.println("Invalid number: " + modelNumber);
         }

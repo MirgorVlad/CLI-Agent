@@ -13,13 +13,17 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -27,8 +31,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class LlmService {
 
-    public static final String SYSTEM_PROMPT_PATH = "/system_prompt.txt";
-
+    private static final String SYSTEM_PROMPT_PATH = "/system_prompt.txt";
+    private static Path PROJECT_DIR_PATH;
+    private Model model = Model.GPT_4_1;
     private WebClient webClient;
     private Map<Model, ModelRequestBuilder> modelRequestBuilderMap;
     private List<ChatMessage> context;
@@ -55,15 +60,19 @@ public class LlmService {
 
         context = new ArrayList<>();
         initSystemPrompt();
+
+        PROJECT_DIR_PATH = Paths.get(System.getProperty("user.dir"), "src");
     }
 
     private void initSystemPrompt() throws IOException {
-        String systemPrompt = new String(Files.readAllBytes(Paths.get(getClass().getResource(SYSTEM_PROMPT_PATH).getPath())));
+        Path path = Paths.get(Utils.class.getResource(SYSTEM_PROMPT_PATH).getPath());
+        String systemPrompt = Utils.getFileContents(path);
         context.add(new ChatMessage(Role.DEVELOPER, systemPrompt));
     }
 
-    public String sendUserPrompt(Model model, String prompt) throws JsonProcessingException {
-        ChatMessage userMessage = new ChatMessage(Role.USER, prompt);
+    public String sendUserPrompt(String prompt) throws JsonProcessingException {
+        String extendPrompt = extendPromptWithInputFiles(prompt);
+        ChatMessage userMessage = new ChatMessage(Role.USER, extendPrompt);
         context.add(userMessage);
 
         ModelRequestBuilder modelRequestBuilder = modelRequestBuilderMap.get(model);
@@ -75,6 +84,61 @@ public class LlmService {
         context.add(modelResponse);
 
         return modelResponse.content();
+    }
+
+    private String extendPromptWithInputFiles(String prompt) {
+        StringBuilder sb = new StringBuilder(prompt);
+        List<String> fileNamesFromPrompt = findFileNamesFromPrompt(prompt);
+        fileNamesFromPrompt.forEach(name -> {
+            List<File> files = Utils.findFilesByName(PROJECT_DIR_PATH, name);
+            String filesContents = files.stream()
+                    .map(file -> {
+                        try {
+                            String fileContents = Utils.getFileContents(file.toPath());
+                            return String.format("\n%s:\n%s\n", name, fileContents);
+                        } catch (IOException e) {
+                            log.error("Can't read file {}", file.getPath(), e);
+                        }
+                        return "";
+                    })
+                    .collect(Collectors.joining());
+            sb.append(filesContents);
+        });
+        return sb.toString();
+    }
+
+    private static List<String> findFileNamesFromPrompt(String prompt) {
+        Pattern pattern = Pattern.compile("#files\\[(.*?)]");
+        Matcher matcher = pattern.matcher(prompt);
+        List<String> allFiles = new ArrayList<>();
+        while (matcher.find()) {
+            String files = matcher.group(1);
+            allFiles.addAll(Arrays.asList(files.split(",")));
+        }
+        return allFiles;
+    }
+
+    public int countContextTokens() {
+        return context.stream()
+                .map(ChatMessage::content)
+                .map(Utils::countTokens)
+                .mapToInt(Integer::intValue)
+                .sum();
+    }
+
+    private ChatMessage sendRequest(String url,
+                                    HttpHeaders headers,
+                                    String requestBody,
+                                    Function<ResponseEntity<String>, ChatMessage> parseResponseFunction) {
+        ResponseEntity<String> response = webClient.post()
+                .uri(url)
+                .headers(h -> h.putAll(headers))
+                .bodyValue(requestBody)
+                .retrieve()
+                .toEntity(String.class)
+                .block();
+
+        return parseResponseFunction.apply(response);
     }
 
     public void clearContext() {
@@ -91,19 +155,12 @@ public class LlmService {
         context.add(new ChatMessage(Role.DEVELOPER, prompt));
     }
 
-    private ChatMessage sendRequest(String url,
-                                    HttpHeaders headers,
-                                    String requestBody,
-                                    Function<ResponseEntity<String>, ChatMessage> parseResponseFunction) {
-        ResponseEntity<String> response = webClient.post()
-                .uri(url)
-                .headers(h -> h.putAll(headers))
-                .bodyValue(requestBody)
-                .retrieve()
-                .toEntity(String.class)
-                .block();
+    public Model getCurrentModel() {
+        return model;
+    }
 
-        return parseResponseFunction.apply(response);
+    public void setCurrentModel(Model model) {
+        this.model = model;
     }
 
 }
