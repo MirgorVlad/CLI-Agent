@@ -15,6 +15,8 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -46,7 +48,7 @@ public class LlmService {
 
         context = new ArrayList<>();
         setCurrentModel(Model.GPT_4_1);
-        PROJECT_DIR_PATH = Paths.get(System.getProperty("user.dir"), "src");
+        PROJECT_DIR_PATH = Paths.get(System.getProperty("user.dir"));
     }
 
     private void initModelRequestBuilderMap() {
@@ -70,10 +72,11 @@ public class LlmService {
 
     private void initSystemPrompt() throws IOException {
         context.clear();
-        Path path = Paths.get(Utils.class.getResource(model.getSystemPromptFileName()).getPath());
-        String systemPrompt = Utils.getFileContents(path);
-        ModelRequestBuilder modelRequestBuilder = modelRequestBuilderMap.get(model);
-        context.add(modelRequestBuilder.getSystemPromptMessage(systemPrompt));
+        try (InputStream in = Utils.class.getResourceAsStream(model.getSystemPromptFileName())) {
+            String systemPrompt = Utils.getFileContents(in);
+            ModelRequestBuilder modelRequestBuilder = modelRequestBuilderMap.get(model);
+            context.add(modelRequestBuilder.getSystemPromptMessage(systemPrompt));
+        }
     }
 
     public String sendUserPrompt(String prompt) throws JsonProcessingException {
@@ -105,8 +108,8 @@ public class LlmService {
             List<File> files = Utils.findFilesByName(PROJECT_DIR_PATH, name);
             String filesContents = files.stream()
                     .map(file -> {
-                        try {
-                            String fileContents = Utils.getFileContents(file.toPath());
+                        try (InputStream in = Files.newInputStream(file.toPath())) {
+                            String fileContents = Utils.getFileContents(in);
                             return String.format("\n%s:\n%s\n", name, fileContents);
                         } catch (IOException e) {
                             log.error("Can't read file {}", file.getPath(), e);

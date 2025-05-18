@@ -7,6 +7,7 @@ import com.knuddels.jtokkit.api.EncodingType;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -22,12 +23,13 @@ public class Utils {
 
     public static List<File> findFilesByName(Path dir, String fileName) {
         List<File> result = new ArrayList<>();
+        if (fileName == null || fileName.isEmpty()) return result;
         File[] files = dir.toFile().listFiles();
         if (files == null) return result;
         for (File file : files) {
             if (file.isDirectory()) {
                 result.addAll(findFilesByName(file.toPath(), fileName));
-            } else if (getFilenameWithoutExtension(file).equals(fileName)) {
+            } else if (file.getName().equals(fileName)) {
                 result.add(file);
             }
         }
@@ -40,7 +42,7 @@ public class Utils {
         return (index == -1) ? name : name.substring(0, index);
     }
 
-    public static String getFileContents(Path path) throws IOException {
-        return Files.readString(path);
+    public static String getFileContents(InputStream in) throws IOException {
+        return new String(in.readAllBytes());
     }
 }

@@ -10,7 +10,7 @@
     </parent>
     <groupId>org.mirgor</groupId>
     <artifactId>console_agent</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>1.0.0</version>
     <name>console_agent</name>
     <description>console_agent</description>
     <url/>

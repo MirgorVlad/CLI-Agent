@@ -23,6 +23,7 @@ public class CliAgentApplication implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws IOException {
+        System.out.println(System.getProperty("user.dir"));
         help();
         mainLoop();
     }
