@@ -1,4 +1,4 @@
-# CliAgentApplication
+# CLI-Agent
 
 ## Overview
 CliAgentApplication is a CLI-based intelligent agent designed to assist with coding tasks, automation, and application management. It leverages language models for natural language processing and provides modular services for extensibility.
@@ -8,7 +8,7 @@ CliAgentApplication is a CLI-based intelligent agent designed to assist with cod
 1. Clone the repository:
     ```
     git clone <repository_url>
-    cd CliAgentApplication
+    cd CLI-Agent
     ```
 
 2. Build the application with Maven:
