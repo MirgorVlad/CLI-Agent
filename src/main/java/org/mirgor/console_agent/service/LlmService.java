@@ -18,7 +18,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -31,9 +30,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class LlmService {
 
-    private static final String SYSTEM_PROMPT_PATH = "/system_prompt.txt";
     private static Path PROJECT_DIR_PATH;
-    private Model model = Model.GPT_4_1;
+    private Model model;
     private WebClient webClient;
     private Map<Model, ModelRequestBuilder> modelRequestBuilderMap;
     private List<ChatMessage> context;
@@ -43,13 +41,15 @@ public class LlmService {
 
     @PostConstruct
     public void init() throws IOException {
-        try {
-            this.webClient = WebClient.create();
-        } catch (Exception e) {
-            log.error("Can't initialize llm service{}", e.getMessage(), e);
-            throw new RuntimeException(e);
-        }
+        initWebClient();
+        initModelRequestBuilderMap();
 
+        context = new ArrayList<>();
+        setCurrentModel(Model.GPT_4_1);
+        PROJECT_DIR_PATH = Paths.get(System.getProperty("user.dir"), "src");
+    }
+
+    private void initModelRequestBuilderMap() {
         modelRequestBuilderMap = modelRequestBuilderList.stream()
                 .flatMap(builder -> builder.getModels().stream()
                         .map(model -> Map.entry(model, builder)))
@@ -57,17 +57,23 @@ public class LlmService {
                         Map.Entry::getKey,
                         Map.Entry::getValue
                 ));
+    }
 
-        context = new ArrayList<>();
-        initSystemPrompt();
-
-        PROJECT_DIR_PATH = Paths.get(System.getProperty("user.dir"), "src");
+    private void initWebClient() {
+        try {
+            this.webClient = WebClient.create();
+        } catch (Exception e) {
+            log.error("Can't initialize llm service{}", e.getMessage(), e);
+            throw new RuntimeException(e);
+        }
     }
 
     private void initSystemPrompt() throws IOException {
-        Path path = Paths.get(Utils.class.getResource(SYSTEM_PROMPT_PATH).getPath());
+        context.clear();
+        Path path = Paths.get(Utils.class.getResource(model.getSystemPromptFileName()).getPath());
         String systemPrompt = Utils.getFileContents(path);
-        context.add(new ChatMessage(Role.DEVELOPER, systemPrompt));
+        ModelRequestBuilder modelRequestBuilder = modelRequestBuilderMap.get(model);
+        context.add(modelRequestBuilder.getSystemPromptMessage(systemPrompt));
     }
 
     public String sendUserPrompt(String prompt) throws JsonProcessingException {
@@ -84,6 +90,12 @@ public class LlmService {
         context.add(modelResponse);
 
         return modelResponse.content();
+    }
+
+    public double getContextSizeCapacityRate(){
+        long modelContextWindowSize = model.getContextWindowSize();
+        int contextWindow = countContextTokens();
+        return (double) contextWindow / modelContextWindowSize;
     }
 
     private String extendPromptWithInputFiles(String prompt) {
@@ -108,12 +120,11 @@ public class LlmService {
     }
 
     private static List<String> findFileNamesFromPrompt(String prompt) {
-        Pattern pattern = Pattern.compile("#files\\[(.*?)]");
+        Pattern pattern = Pattern.compile("#file ([^\\s]+)");
         Matcher matcher = pattern.matcher(prompt);
         List<String> allFiles = new ArrayList<>();
         while (matcher.find()) {
-            String files = matcher.group(1);
-            allFiles.addAll(Arrays.asList(files.split(",")));
+            allFiles.add(matcher.group(1));
         }
         return allFiles;
     }
@@ -159,8 +170,9 @@ public class LlmService {
         return model;
     }
 
-    public void setCurrentModel(Model model) {
+    public void setCurrentModel(Model model) throws IOException {
         this.model = model;
+        initSystemPrompt();
     }
 
 }

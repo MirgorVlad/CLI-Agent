@@ -8,6 +8,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
+import java.io.IOException;
 import java.util.Scanner;
 
 @SpringBootApplication
@@ -21,35 +22,40 @@ public class CliAgentApplication implements CommandLineRunner {
     }
 
     @Override
-    public void run(String... args) throws JsonProcessingException {
+    public void run(String... args) throws IOException {
         help();
         mainLoop();
     }
 
-    private void mainLoop() throws JsonProcessingException {
+    private void mainLoop() throws IOException {
         while (true) {
-            System.out.print("\nInput: ");
-            Scanner scanner = new Scanner(System.in);
-            String input = scanner.nextLine().trim();
+            try {
+                System.out.print("\nInput: ");
+                Scanner scanner = new Scanner(System.in);
+                String input = scanner.nextLine().trim();
 
-            if (input.equals("/exit")) {
-                System.exit(0);
-            } else if (input.equals("/help")) {
-                help();
-            } else if (input.startsWith("#") && !input.startsWith("#file")) {
-                llmService.addDeveloperContext(input);
-            } else if (input.startsWith("/models")) {
-                modelSelection(scanner);
-            } else if (input.startsWith("/model")) {
-                System.out.println(llmService.getCurrentModel());
-            } else if (input.startsWith("/context")) {
-                printContext();
-            } else if (input.startsWith("/clear")) {
-                llmService.clearContext();
-                System.out.println("Context is cleared");
-            } else if (!input.isBlank()) {
-                String modelResponse = llmService.sendUserPrompt(input);
-                System.out.println(modelResponse);
+                if (input.equals("/exit")) {
+                    System.exit(0);
+                } else if (input.equals("/help")) {
+                    help();
+                } else if (input.startsWith("#") && !input.startsWith("#file")) {
+                    llmService.addDeveloperContext(input);
+                } else if (input.startsWith("/models")) {
+                    modelSelection(scanner);
+                } else if (input.startsWith("/model")) {
+                    System.out.println(llmService.getCurrentModel());
+                } else if (input.startsWith("/context")) {
+                    printContext();
+                } else if (input.startsWith("/clear")) {
+                    llmService.clearContext();
+                    System.out.println("Context is cleared");
+                } else if (!input.isBlank()) {
+                    validateContextWindow();
+                    String modelResponse = llmService.sendUserPrompt(input);
+                    System.out.println(modelResponse);
+                }
+            } catch (Exception e) {
+                System.out.println("Error: " + e.getMessage());
             }
         }
     }
@@ -57,9 +63,11 @@ public class CliAgentApplication implements CommandLineRunner {
     private void printContext() {
         long modelContextWindowSize = llmService.getCurrentModel().getContextWindowSize();
         int contextWindow = llmService.countContextTokens();
-        System.out.printf("\u001B[1m %s/%s \u001B[0m \n", contextWindow, modelContextWindowSize);
+
         llmService.getChatContext()
                 .forEach(message -> System.out.printf("\u001B[1m  - %s:\u001B[0m %s\n", message.role(), message.content()));
+
+        System.out.printf("\u001B[1m %s/%s \u001B[0m \n", contextWindow, modelContextWindowSize);
     }
 
     private static void help() {
@@ -72,11 +80,11 @@ public class CliAgentApplication implements CommandLineRunner {
                 "\t* Enter '/context' to see chat context\n " +
                 "\t* Enter '/exit' to exit\n" +
                 "\t* Enter '/help' to show help'\n" +
-                "\t** Use #file 'FileName1,FileName2' to add files to context in prompt\n"
+                "\t** Use #file FileName to add files to context\n"
         );
     }
 
-    private void modelSelection(Scanner scanner) {
+    private void modelSelection(Scanner scanner) throws IOException {
         int i = 1;
         System.out.println("Models:");
         for (Model model : Model.values()) {
@@ -89,6 +97,13 @@ public class CliAgentApplication implements CommandLineRunner {
             llmService.setCurrentModel(model);
         } catch (NumberFormatException e) {
             System.out.println("Invalid number: " + modelNumber);
+        }
+    }
+
+    private void validateContextWindow() {
+        double contextSizeCapacityRate = llmService.getContextSizeCapacityRate();
+        if (contextSizeCapacityRate > 0.9) {
+            System.out.println("\u001B[1m CONTEXT WINDOW CAPACITY > 90% !!! \u001B[0m");
         }
     }
 

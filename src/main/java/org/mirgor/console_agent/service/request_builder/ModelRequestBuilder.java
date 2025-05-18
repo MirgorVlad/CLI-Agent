@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import lombok.extern.slf4j.Slf4j;
 import org.mirgor.console_agent.service.model.Model;
 import org.mirgor.console_agent.service.model.ChatMessage;
 import org.mirgor.console_agent.service.model.Role;
@@ -16,11 +17,18 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
+@Slf4j
 public abstract class ModelRequestBuilder {
 
     protected final ObjectMapper objectMapper = new ObjectMapper();
 
     public abstract List<Model> getModels();
+
+    public abstract ChatMessage getSystemPromptMessage(String prompt);
+
+    public abstract String buildRequestBody(Model model, List<ChatMessage> context) throws JsonProcessingException;
+
+    public abstract ChatMessage parseResponse(ResponseEntity<String> response);
 
     public HttpHeaders buildHeaders(String apiKey) {
         HttpHeaders httpHeaders = new HttpHeaders();
@@ -28,33 +36,4 @@ public abstract class ModelRequestBuilder {
         httpHeaders.add(HttpHeaders.AUTHORIZATION, String.format("Bearer %s", apiKey));
         return httpHeaders;
     }
-
-    public String buildRequestBody(Model model, List<ChatMessage> context) throws JsonProcessingException {
-        ObjectNode requestBody = objectMapper.createObjectNode();
-        ArrayNode messages = objectMapper.valueToTree(context);
-        requestBody.put("model", model.getLabel());
-        requestBody.set("messages", messages);
-
-        return objectMapper.writeValueAsString(requestBody);
-    }
-
-    public ChatMessage parseResponse(ResponseEntity<String> response) {
-        if (response == null || response.getBody() == null) {
-            return new ChatMessage(Role.ASSISTANT, "");
-        }
-
-        try {
-            JsonNode responseNode = objectMapper.readTree(response.getBody());
-            JsonNode choices = responseNode.get("choices");
-            String responseMessage = StreamSupport.stream(choices.spliterator(), false)
-                    .map(choice -> choice.path("message").path("content").asText())
-                    .filter(text -> !text.isEmpty())
-                    .collect(Collectors.joining());
-            return new ChatMessage(Role.ASSISTANT, responseMessage);
-
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Failed to parse model response", e);
-        }
-    }
-
 }

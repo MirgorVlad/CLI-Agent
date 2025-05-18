@@ -15,12 +15,18 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-@Slf4j @Component
+@Slf4j
+@Component
 public class OpenAiRequestBuilder extends ModelRequestBuilder{
 
     @Override
     public List<Model> getModels() {
         return List.of(Model.GPT_4_1, Model.GPT_O3_MINI);
+    }
+
+    @Override
+    public ChatMessage getSystemPromptMessage(String prompt) {
+        return new ChatMessage(Role.DEVELOPER, prompt);
     }
 
     @Override
