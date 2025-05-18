@@ -1,57 +1,56 @@
-package org.mirgor.console_agent.service;
+package org.mirgor.console_agent.service.request_builder;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import lombok.RequiredArgsConstructor;
+import org.mirgor.console_agent.service.model.Model;
+import org.mirgor.console_agent.service.model.ChatMessage;
+import org.mirgor.console_agent.service.model.Role;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Component;
 import org.springframework.util.MimeTypeUtils;
 
+import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-public class ModelRequestBuilder {
+public abstract class ModelRequestBuilder {
 
-    private static final ObjectMapper objectMapper = new ObjectMapper();
+    protected final ObjectMapper objectMapper = new ObjectMapper();
 
-    public static HttpHeaders buildHeaders(String apiKey) {
+    public abstract List<Model> getModels();
+
+    public HttpHeaders buildHeaders(String apiKey) {
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.add(HttpHeaders.CONTENT_TYPE, MimeTypeUtils.APPLICATION_JSON_VALUE);
         httpHeaders.add(HttpHeaders.AUTHORIZATION, String.format("Bearer %s", apiKey));
         return httpHeaders;
     }
 
-    public static String buildRequestBody(Model model, String prompt) throws JsonProcessingException {
+    public String buildRequestBody(Model model, List<ChatMessage> context) throws JsonProcessingException {
         ObjectNode requestBody = objectMapper.createObjectNode();
-        ArrayNode messages = objectMapper.createArrayNode();
-
-        ObjectNode userMessage = objectMapper.createObjectNode();
-        userMessage.put("role", "user");
-        userMessage.put("content", prompt);
-        messages.add(userMessage);
-
+        ArrayNode messages = objectMapper.valueToTree(context);
         requestBody.put("model", model.getLabel());
         requestBody.set("messages", messages);
 
         return objectMapper.writeValueAsString(requestBody);
     }
 
-    public static String parseResponse(ResponseEntity<String> response) {
+    public ChatMessage parseResponse(ResponseEntity<String> response) {
         if (response == null || response.getBody() == null) {
-            return "";
+            return new ChatMessage(Role.ASSISTANT, "");
         }
 
         try {
             JsonNode responseNode = objectMapper.readTree(response.getBody());
             JsonNode choices = responseNode.get("choices");
-            return StreamSupport.stream(choices.spliterator(), false)
+            String responseMessage = StreamSupport.stream(choices.spliterator(), false)
                     .map(choice -> choice.path("message").path("content").asText())
                     .filter(text -> !text.isEmpty())
                     .collect(Collectors.joining());
+            return new ChatMessage(Role.ASSISTANT, responseMessage);
 
         } catch (Exception e) {
             throw new IllegalArgumentException("Failed to parse model response", e);

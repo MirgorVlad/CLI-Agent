@@ -1,5 +1,6 @@
 package org.mirgor.console_agent.service;
 
+import org.mirgor.console_agent.service.model.Model;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 

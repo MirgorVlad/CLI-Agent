@@ -1,8 +1,8 @@
 package org.mirgor.console_agent;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import org.mirgor.console_agent.service.LlmWebClient;
-import org.mirgor.console_agent.service.Model;
+import org.mirgor.console_agent.service.LlmService;
+import org.mirgor.console_agent.service.model.Model;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
@@ -16,7 +16,7 @@ public class CliAgentApplication implements CommandLineRunner {
     private Model model = Model.GPT_4_1;
 
     @Autowired
-    private LlmWebClient llmWebClient;
+    private LlmService llmService;
 
     public static void main(String[] args) {
         SpringApplication.run(CliAgentApplication.class, args);
@@ -39,15 +39,18 @@ public class CliAgentApplication implements CommandLineRunner {
             } else if (input.equals("/help")) {
                 help();
             } else if (input.startsWith("#") && !input.startsWith("#file")) {
-                System.out.println("Added to context");
+                llmService.addDeveloperContext(input);
             } else if (input.startsWith("/models")) {
                 modelSelection(scanner);
             } else if (input.startsWith("/model")) {
                 System.out.println(model);
+            } else if (input.startsWith("/context")) {
+                System.out.println(llmService.getChatContext());
             } else if (input.startsWith("/clear")) {
-                System.out.println("Clear context");
+                llmService.clearContext();
+                System.out.println("Context is cleared");
             } else if (!input.isBlank()) {
-                String modelResponse = llmWebClient.getModelResponse(model, input);
+                String modelResponse = llmService.sendUserPrompt(model, input);
                 System.out.println(modelResponse);
             }
         }
@@ -60,6 +63,7 @@ public class CliAgentApplication implements CommandLineRunner {
                 "\t* Enter '/models' to select model\n" +
                 "\t* Enter '/model' to get current model\n" +
                 "\t* Enter '/clear' to clear context\n " +
+                "\t* Enter '/context' to see chat context\n " +
                 "\t* Enter '/exit' to exit\n" +
                 "\t* Enter '/help' to show help'\n" +
                 "\t** Use #file 'FileName1,FileName2' to add files to context in prompt\n"
@@ -75,7 +79,7 @@ public class CliAgentApplication implements CommandLineRunner {
         String modelNumber = scanner.nextLine().trim();
         try {
             int number = Integer.parseInt(modelNumber);
-            model = Model.values()[number-1];
+            model = Model.values()[number - 1];
         } catch (NumberFormatException e) {
             System.out.println("Invalid number: " + modelNumber);
         }
