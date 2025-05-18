@@ -29,7 +29,7 @@ public class Utils {
         for (File file : files) {
             if (file.isDirectory()) {
                 result.addAll(findFilesByName(file.toPath(), fileName));
-            } else if (file.getName().equals(fileName)) {
+            } else if (getFilenameWithoutExtension(file).equals(fileName)) {
                 result.add(file);
             }
         }
