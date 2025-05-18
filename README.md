@@ -23,7 +23,7 @@ CliAgentApplication is a CLI-based intelligent agent designed to assist with cod
 Before running the application, set the following environment variables:
 
 - `OPEN_AI_API_KEY` : Your API key for the OpenAI language model API.
-- `CLAUDE_API_KEY` : Your API key for the Anthropic Claude OpenAI language model API.
+- `CLAUDE_API_KEY` : Your API key for the Anthropic Claude language models API.
 
 You can set them in your shell or add to your `/etc/environment`:
 ```sh
