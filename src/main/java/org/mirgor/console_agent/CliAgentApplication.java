@@ -6,6 +6,7 @@ import org.mirgor.console_agent.service.model.Model;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 import java.io.IOException;
@@ -18,7 +19,9 @@ public class CliAgentApplication implements CommandLineRunner {
     private LlmService llmService;
 
     public static void main(String[] args) {
-        SpringApplication.run(CliAgentApplication.class, args);
+        SpringApplication app = new SpringApplication(CliAgentApplication.class);
+        app.setWebApplicationType(WebApplicationType.NONE);
+        app.run(args);
     }
 
     @Override
