@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.mirgor.console_agent.service.config.LlmConfig;
 import org.mirgor.console_agent.service.model.Model;
 import org.mirgor.console_agent.service.model.ChatMessage;
 import org.mirgor.console_agent.service.model.Role;
@@ -33,7 +34,7 @@ import java.util.stream.Collectors;
 public class LlmService {
 
     private static Path PROJECT_DIR_PATH;
-    private Model model;
+    private Profile profile;
     private WebClient webClient;
     private Map<Model, ModelRequestBuilder> modelRequestBuilderMap;
     private List<ChatMessage> context;
@@ -47,7 +48,7 @@ public class LlmService {
         initModelRequestBuilderMap();
 
         context = new ArrayList<>();
-        setCurrentModel(Model.GPT_4_1);
+        setCurrentProfile(Profile.SIMPLE);
         PROJECT_DIR_PATH = Paths.get(System.getProperty("user.dir"));
     }
 
@@ -72,9 +73,13 @@ public class LlmService {
 
     private void initSystemPrompt() throws IOException {
         context.clear();
-        try (InputStream in = Utils.class.getResourceAsStream(model.getSystemPromptFileName())) {
+
+        if (this.profile == Profile.SIMPLE) {
+            return;
+        }
+        try (InputStream in = Utils.class.getResourceAsStream(profile.getSystemPromptFile())) {
             String systemPrompt = Utils.getFileContents(in);
-            ModelRequestBuilder modelRequestBuilder = modelRequestBuilderMap.get(model);
+            ModelRequestBuilder modelRequestBuilder = modelRequestBuilderMap.get(this.profile.getModel());
             context.add(modelRequestBuilder.getSystemPromptMessage(systemPrompt));
         }
     }
@@ -83,7 +88,7 @@ public class LlmService {
         String extendPrompt = extendPromptWithInputFiles(prompt);
         ChatMessage userMessage = new ChatMessage(Role.USER, extendPrompt);
         context.add(userMessage);
-
+        Model model = this.profile.getModel();
         ModelRequestBuilder modelRequestBuilder = modelRequestBuilderMap.get(model);
         LlmConfig.LlmDetails llmDetails = llmConfig.get(model);
         HttpHeaders headers = modelRequestBuilder.buildHeaders(llmDetails.key());
@@ -95,8 +100,8 @@ public class LlmService {
         return modelResponse.content();
     }
 
-    public double getContextSizeCapacityRate(){
-        long modelContextWindowSize = model.getContextWindowSize();
+    public double getContextSizeCapacityRate() {
+        long modelContextWindowSize = this.profile.getModel().getContextWindowSize();
         int contextWindow = countContextTokens();
         return (double) contextWindow / modelContextWindowSize;
     }
@@ -169,12 +174,12 @@ public class LlmService {
         context.add(new ChatMessage(Role.DEVELOPER, prompt));
     }
 
-    public Model getCurrentModel() {
-        return model;
+    public Profile getCurrentProfile() {
+        return profile;
     }
 
-    public void setCurrentModel(Model model) throws IOException {
-        this.model = model;
+    public void setCurrentProfile(Profile profile) throws IOException {
+        this.profile = profile;
         initSystemPrompt();
     }
 

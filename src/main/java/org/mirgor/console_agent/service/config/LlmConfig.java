@@ -1,4 +1,4 @@
-package org.mirgor.console_agent.service;
+package org.mirgor.console_agent.service.config;
 
 import org.mirgor.console_agent.service.model.Model;
 import org.springframework.boot.context.properties.ConfigurationProperties;
