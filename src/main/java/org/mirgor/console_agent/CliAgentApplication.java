@@ -53,7 +53,7 @@ public class CliAgentApplication implements CommandLineRunner {
                 } else if (!input.isBlank()) {
                     validateContextWindow();
                     String modelResponse = llmService.sendUserPrompt(input);
-                    System.out.println(modelResponse);
+                    System.out.printf("\n \u001B[33m %s \u001B[0m \n", modelResponse);
                 }
             } catch (Exception e) {
                 System.out.println("Error: " + e.getMessage());
