@@ -1,4 +1,5 @@
 # CLI-Agent
+![image](https://github.com/user-attachments/assets/0df74f64-ccfe-4d28-ae13-8742c53ca837)
 
 ## Overview
 CliAgentApplication is a CLI-based intelligent agent designed to assist with coding tasks, automation, and application management. It leverages language models for natural language processing and provides modular services for extensibility.
