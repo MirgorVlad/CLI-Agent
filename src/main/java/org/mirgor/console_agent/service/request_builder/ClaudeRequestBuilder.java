@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import lombok.extern.slf4j.Slf4j;
 import org.mirgor.console_agent.service.model.ChatMessage;
 import org.mirgor.console_agent.service.model.Model;
 import org.mirgor.console_agent.service.model.Role;
@@ -16,7 +17,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-@Component
+@Slf4j @Component
 public class ClaudeRequestBuilder extends ModelRequestBuilder{
 
     @Override
@@ -45,7 +46,6 @@ public class ClaudeRequestBuilder extends ModelRequestBuilder{
         requestBody.put("model", model.getLabel());
         requestBody.put("max_tokens", 10_000);
         requestBody.set("messages", messages);
-
         return objectMapper.writeValueAsString(requestBody);
     }
 
